@@ -223,9 +223,15 @@ def openCSV(filename):
     
     #skips the second line when reading with pandas since it usually contains unit information and not data 
     if hasUnitsVar:
-        data = pd.read_csv(filename, skiprows=[1])
+        try:
+            data = pd.read_csv(filename, skiprows=[1])
+        except pd.errors.EmptyDataError:
+            window["statusText"].update("Empty file")
     else:
-        data = pd.read_csv(filename)
+        try:
+            data = pd.read_csv(filename)
+        except pd.errors.EmptyDataError:
+            window["statusText"].update("Empty file")
     
 
 def update_annot(event, annot):
