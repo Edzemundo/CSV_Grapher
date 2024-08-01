@@ -26,6 +26,7 @@ axisLabelFont = {'family': 'serif',
 filelocations = []  #list of multiple csv files
 annots = [] #list of annotations
 graphs = [] #list of graphs plotted
+titles = [] #list of titles
 
 
 class Graph:
@@ -65,10 +66,21 @@ class Graph:
                         arrowprops=dict(arrowstyle="->"))
             self.annot.set_visible(False)
             self.annots.append(self.annot)
-            self.legend = plt.legend(prop={"size": 10}, loc="upper right")
+            
+            if not values["sameplotMultiplot"]:
+                self.legend = plt.legend(prop={"size": 10}, loc="upper right")
+            else:
+                self.legend = plt.legend(titles, prop={"size": 10}, loc="upper right")
             counter += 1
             
-        self.title = plt.title(title, fontdict=titleFont)   #title of graph
+        #title of graph
+        if not values["sameplotMultiplot"]:
+            title = str(titles[-1]).replace("'","")    
+            self.title = plt.title(title, fontdict=titleFont) 
+        else:
+            temp_title = str(titles)
+            temp_title = temp_title.replace("]", "").replace("[", "").replace("'","")
+            self.title = plt.title(temp_title, fontdict=titleFont)
         
         # Determines whether or not 2nd row is plotted as data based on if units are present
         if hasUnitsVar:
@@ -144,7 +156,8 @@ class SubplotGraph:
             #generally same as Graph class
             for yField in yFields:
                 self.line, = plt.plot(data[xField], data[yField], pickradius = 2)
-                self.line.set_label(f"{yFields[counter]}")
+                if hasUnitsVar:
+                    self.line.set_label(f"{yFields[counter-1]}")
                 self.lines.append(self.line)
                 self.annot = plt.annotate(
                             "", 
@@ -217,6 +230,7 @@ def openCSV(filename):
         xField = fields.pop(0).strip()
         yFields = [i.strip() for i in fields]
         title = filename.split("/")[-1].split(".")[0]
+        titles.append(title)
         
         print(yFields)
         print(units)
@@ -243,7 +257,7 @@ def update_annot(event, annot):
     """
     x,y = event.xdata, event.ydata      #get the x,y data from the event
     annot.xy = (x, y)   #set the annotation x and y coordinates
-    annot.set_text(f"{x:.10f},{y:.10f}")    #set text of annotation to the values of the location being hovered
+    annot.set_text(f"{x:.4f},{y:.4f}")    #set text of annotation to the values of the location being hovered
     annot.get_bbox_patch().set_alpha(0.2)
     graph.setAnnotVisibility(True)
 
@@ -256,12 +270,13 @@ def create_annot(x,y):
         x (float): x-xoordinate
         y (float): y-coordinate
     """
-    graph.annotation = plt.annotate("", xy=(x,y), xytext=(-20,20),textcoords="offset points",
-                    bbox=dict(boxstyle="round", fc="w"),
-                    arrowprops=dict(arrowstyle="->"))
-    graph.annotation.set_text(f"{x:.7f},{y:.7f}")
-    graph.annotation.get_bbox_patch().set_alpha(0.4)
-    graph.annotation.set_visible(True)
+    if not values["subplotMultiplot"]:
+        graph.annotation = plt.annotate(f"{x:.4f},{y:.4f}", xy=(x,y), xytext=(-20,20),textcoords="offset points",
+                        bbox=dict(boxstyle="round", fc="w"),
+                        arrowprops=dict(arrowstyle="->"))
+        # graph.annotation.set_text(f"{x:.4f},{y:.4f}")
+        graph.annotation.get_bbox_patch().set_alpha(0.4)
+        graph.annotation.set_visible(True)
 
 
 def hover(event):
@@ -270,6 +285,7 @@ def hover(event):
     Args:
         event: hover event
     """
+    # print(event)
     for line in graph.lines:
         if event.inaxes:    #if the event is within the graph
             cont, ind = line.contains(event)
@@ -302,6 +318,8 @@ def mouse_event(event):
 # ---------------------------------------------------------------------
 # This is for the GUI using PySimpleGUI - read the PySimpleGui docs for more details on how this was created
 
+sg.theme("DarkBlue5")
+
 # layout for the gui
 layout = [[sg.Text("Please select .csv file below:")],
           [sg.Input(key="fileInput", enable_events=True), sg.FileBrowse(key="fileBrowse", file_types=(("CSV Files", "*.csv"),))],
@@ -329,9 +347,11 @@ while True:
     # if okay button is clicked
     if event == "okay":
         window["statusText"].update("")
+        titles = []
         try:
             # graph the csv file selected
             if values["oneCSV"] == True:
+                values["subplotMultiplot"] = False  #stop subplot from preventing click events after feature was removed from subplots
                 if values["fileInput"] != "":
                     openCSV(values["fileInput"])
                     graph = Graph(oneCSVCounter)
@@ -437,7 +457,7 @@ while True:
             filelocations = []
             filenames = []
             window["filename"].update("")
-            window["statusText"].update("Minimim number of files not added")
+            window["statusText"].update("Minimim number of files not added or Index Error")
             window["fileInput"].update("")
         
     if event in ("oneCSV", "multiCSV", "dirGraph", "subplotMultiplot", "sameplotMultiplot", "diffplotMultiplot"):
